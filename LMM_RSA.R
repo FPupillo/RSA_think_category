@@ -190,12 +190,11 @@ ggplot(all_df %>%
 library(lme4)
 library(lmerTest)
 library(car)
-mod<-lmer(dissimilarity~object_categ*ROI+(1+object_categ+ROI|sub), data = all_df)
-summary(mod)
-Anova(mod)
 
-mod2<-lmer(dissimilarity~object_categ+(1|sub), 
+
+mod<-lmer(dissimilarity~object_categ+(1|sub), 
            data = all_df[all_df$ROI!="lateral-occipital_LH_RH",])
 
 summary(mod2)
 Anova(mod2)
+
