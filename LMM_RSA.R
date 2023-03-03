@@ -2,6 +2,7 @@
 rm(list=ls())
 library(ggplot2)
 library(dplyr)
+
 # get the parent folder
 #------------------------------------------------------------------------------#
 # get the script directory
@@ -31,7 +32,7 @@ subname<-unique(substr(RDMs, 1, 6))
 all_list<-list()
 
 # set a progress bar
-pb<-txtProgressBar(min=0, max=64*64*5*length(subname), style =3)
+pb<-txtProgressBar(min=0, max=64*64*5*length(subname)*4, style =3)
 
 # initialize a counter for the whole df
 counter2<-1
@@ -46,7 +47,7 @@ for (sub in 1:length(subname)){
   curr_files<-RDMs[grep(curr_sub, RDMs)]
   
   # create a long dataframe
-  long_df<-as.data.frame(matrix(NA, nrow = 64^2*length(curr_files), ncol = 5))
+  long_df<-as.data.frame(matrix(NA, nrow = 64^2*length(curr_files)*4, ncol = 5))
   
   names(long_df)<-c("dissimilarity", "same_categ", "object_categ", "ROI", "sub")
   
@@ -87,12 +88,14 @@ for (sub in 1:length(subname)){
     colnames(c_RDM_df)<-labels
     rownames(c_RDM_df)<-labels
   
+    labs<-c("Electronic_device", "Handlabour_tool", "Kitchen_utensils","Outdoor_activity_sport")
     
     # loop through the columns
-    for (col in 1:ncol(c_RDM_df)){
+    for (lab in 1:length(labs)){
       
-      # loop through the rows
-    for (row in 1:nrow(c_RDM_df)){
+      for (row in 1:nrow(c_RDM_df)){
+        
+        for (col in 1:nrow(c_RDM_df)){
       
       # get the dissimilarity
       long_df$dissimilarity[counter]<-c_RDM_df[row, col]
@@ -116,10 +119,11 @@ for (sub in 1:length(subname)){
       }
       
       # create the "same_categ"index
-      long_df$same_categ[counter]<- ifelse(colname == rowname, 1, 0)
+      long_df$same_categ[counter]<- ifelse((colname == labs[lab] & rowname == labs[lab])
+                                           , 1, 0)
       
       # object category
-      long_df$object_categ[counter]<- colname
+      long_df$object_categ[counter]<- labs[lab]
       
       # ROI
       long_df$ROI[counter]<-ROI
@@ -136,7 +140,10 @@ for (sub in 1:length(subname)){
       
     } # end of the loop through columns
     
+    } # end of the lab loop
+
   } # end of the loop through ROIs
+  
   
   # add the df to the object linst
   all_list[[sub]]<-long_df
@@ -175,12 +182,20 @@ ggplot(all_df %>%
               group_by(sub,same_categ, object_categ, ROI) %>%
               summarise(dissim = mean(dissimilarity, na.rm=T)) , 
              aes(same_categ, dissim,group = sub), 
-            size=1, alpha=0.2, stat="summary")+
+            size=1, alpha=0.3, stat="summary")+
   theme_classic() +
-  facet_wrap(ROI~object_categ)
+  facet_grid(.~object_categ)
 
-ggplot(all_df, 
-       aes(x = same_categ, y = dissimilarity))+
-  geom_boxplot(alpha=0)+
-  geom_point
+# analyze
+library(lme4)
+library(lmerTest)
+library(car)
+mod<-lmer(dissimilarity~object_categ*ROI+(1+object_categ+ROI|sub), data = all_df)
+summary(mod)
+Anova(mod)
 
+mod2<-lmer(dissimilarity~object_categ+(1|sub), 
+           data = all_df[all_df$ROI!="lateral-occipital_LH_RH",])
+
+summary(mod2)
+Anova(mod2)
